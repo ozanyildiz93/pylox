@@ -48,6 +48,10 @@ class TokenType(Enum):
     VAR = auto()
     WHILE = auto()
 
+    # internal use only
+    MULTILINE_COMMENT = auto()
+    COMMENT = auto()
+    INVALID = auto()
     EOF = auto()
 
     def __str__(self):
@@ -55,11 +59,13 @@ class TokenType(Enum):
 
 
 class Token(object):
-    def __init__(self, type: TokenType, lexeme: str, literal, line: int):
+    def __init__(self, type: TokenType, lexeme: str, literal,
+                 line: int, column: int):
         self.type = type
         self.lexeme = lexeme
         self.literal = literal
         self.line = line
+        self.column = column
 
     def __str__(self):
         return "Token({type} {lexeme} {literal})".format(type=self.type,

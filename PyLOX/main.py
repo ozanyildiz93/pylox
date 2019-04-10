@@ -31,7 +31,6 @@ def run_prompt():
 def run(source):
     scanner = Scanner(source)
     tokens = scanner.scan_tokens()
-
     for token in tokens:
         print(token)
 
