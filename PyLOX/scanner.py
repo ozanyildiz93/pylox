@@ -1,14 +1,63 @@
 from typing import Any, List
 
+from PyLOX.base_scanner import BaseScanner
 from PyLOX.token import TokenType, Token
 
+# characters
+valid_characters = set("1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM*,;.+-_{}()*!=<>/" + '"')
+digits = set("0123456789")
+alpha = set("QWERTYUIOPASDFGHJKLZXCVBNM_qwertyuiopasdfghjklzxcvbnm")
 
-class Scanner(object):
+# character to tokens
+single_character_tokens = {
+    "*": TokenType.STAR,
+    ",": TokenType.COMMA,
+    ";": TokenType.SEMICOLON,
+    "+": TokenType.PLUS,
+    "-": TokenType.MINUS,
+    ".": TokenType.DOT,
+    "(": TokenType.LEFT_PAREN,
+    "{": TokenType.LEFT_BRACE,
+    ")": TokenType.RIGHT_PAREN,
+    "}": TokenType.RIGHT_BRACE
+}
+
+# maps to 3-tuple
+# expected char, type if expected char is present, type otherwise
+one_two_character_tokens = {
+    "!": ("=", TokenType.BANG_EQUAL, TokenType.BANG),
+    "=": ("=", TokenType.EQUAL_EQUAL, TokenType.EQUAL),
+    "<": ("=", TokenType.LESS_EQUAL, TokenType.LESS),
+    ">": ("=", TokenType.GREATER_EQUAL, TokenType.GREATER)
+}
+
+keywords = {
+    "and": TokenType.AND,
+    "class": TokenType.CLASS,
+    "else": TokenType.ELSE,
+    "false": TokenType.FALSE,
+    "for": TokenType.FOR,
+    "fun": TokenType.FUNC,
+    "if": TokenType.IF,
+    "nil": TokenType.NIL,
+    "or": TokenType.OR,
+    "print": TokenType.PRINT,
+    "return": TokenType.RETURN,
+    "super": TokenType.SUPER,
+    "this": TokenType.THIS,
+    "true": TokenType.TRUE,
+    "var": TokenType.VAR,
+    "while": TokenType.WHILE,
+    "break": TokenType.BREAK
+}
+
+
+class Scanner(BaseScanner):
     def __init__(self, source):
-        self.source = source
-        self.start = 0
+        super(Scanner, self).__init__(source)
         self.line = 0
         self.column = 0
+        self.valid = True
 
     def scan_tokens(self) -> List[Token]:
         tokens = []
@@ -20,109 +69,31 @@ class Scanner(object):
         tokens.append(Token(TokenType.EOF, "", None, self.line, self.column))
         return tokens
 
-    single_character_tokens = {
-        "*": TokenType.STAR,
-        ",": TokenType.COMMA,
-        ";": TokenType.SEMICOLON,
-        "+": TokenType.PLUS,
-        "-": TokenType.MINUS,
-        ".": TokenType.DOT,
-        "(": TokenType.LEFT_PAREN,
-        "{": TokenType.LEFT_BRACE,
-        ")": TokenType.RIGHT_PAREN,
-        "}": TokenType.RIGHT_BRACE
-    }
-
-    # maps to 3-tuple
-    # expected char, type if expected char is present, type otherwise
-    one_two_character_tokens = {
-        "!": ("=", TokenType.BANG_EQUAL, TokenType.BANG),
-        "=": ("=", TokenType.EQUAL_EQUAL, TokenType.EQUAL),
-        "<": ("=", TokenType.LESS_EQUAL, TokenType.LESS),
-        ">": ("=", TokenType.GREATER_EQUAL, TokenType.GREATER)
-    }
-
-    keywords = {
-        "and": TokenType.AND,
-        "class": TokenType.CLASS,
-        "else": TokenType.ELSE,
-        "false": TokenType.FALSE,
-        "for": TokenType.FOR,
-        "fun": TokenType.FUNC,
-        "if": TokenType.IF,
-        "nil": TokenType.NIL,
-        "or": TokenType.OR,
-        "print": TokenType.PRINT,
-        "return": TokenType.RETURN,
-        "super": TokenType.SUPER,
-        "this": TokenType.THIS,
-        "true": TokenType.TRUE,
-        "var": TokenType.VAR,
-        "while": TokenType.WHILE
-    }
-
-    valid_characters = set("1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM*,;.+-_{}()*!=<>/" + '"')
-    digits = set("0123456789")
-    alpha = set("QWERTYUIOPASDFGHJKLZXCVBNM_qwertyuiopasdfghjklzxcvbnm")
-
-    def tokenize(self, start: int, type: TokenType, literal: Any = None) -> Token:
-        # creates a token starting from start and ends at self.start
-        lexeme = self.source[start: self.start]
+    def tokenize(self, type: TokenType, literal: Any = None) -> Token:
+        # creates a token using recorded part of the source
+        lexeme = self.stop_recording()
         return Token(type, lexeme, literal, self.line, self.column)
-
-    def match(self, expected: chr) -> bool:
-        # consumes the next character if matches to expected and returns True
-        if self.is_finished():
-            return False
-        current = self.get_current_character()
-        if current == expected:
-            self.advance()
-            return True
-        return False
-
-    def advance(self) -> None:
-        # increments start and column
-        self.start += 1
-        self.column += 1
-
-    def get_current_character(self) -> chr:
-        # returns the current character
-        if self.start < len(self.source):
-            return self.source[self.start]
-        else:
-            return ""
-
-    def get_next_character(self) -> chr:
-        # returns the next character
-        if self.start + 1 < len(self.source):
-            return self.source[self.start + 1]
-        return ""
-
-    def consume(self) -> chr:
-        # returns current character and advances scanner by one character
-        # if at the end of source, returns None
-        result = self.get_current_character()
-        self.advance()
-        return result
-
-    def is_finished(self) -> bool:
-        # returns true if current index passed the end of source
-        return self.start >= len(self.source)
 
     def register_newline(self) -> None:
         # register a newline
         self.line += 1
         self.column = 0
 
+    def advance(self):
+        # overwrite advance to increment column
+        self.column += 1
+        super(Scanner, self).advance()
+
     def is_current_char_whitespace(self) -> bool:
         # returns true if current character corresponds to a whitespace
-        return self.get_current_character() in set(" \t")
+        return self.peek() in set(" \t")
 
     def is_current_char_newline(self) -> bool:
         # returns true if current character is a newline
-        return self.get_current_character() in set("\r\n")
+        return self.peek() in set("\r\n")
 
     def consume_newline(self) -> None:
+        self.match("\r\n")
         while self.is_current_char_newline():
             self.consume()
         self.register_newline()
@@ -145,44 +116,44 @@ class Scanner(object):
     def scan_token(self) -> Token:
         # skip whitespaces
         self.consume_whitespace()
-        start = self.start
+        self.start_recording()
         character = self.consume()
 
         # check for end of source file
-        if character is "":
-            token = self.tokenize(start, TokenType.EOF)
+        if character is None:
+            token = self.tokenize(TokenType.EOF)
             return token
 
         # check for unrecognized characters
-        if character not in Scanner.valid_characters:
+        if character not in valid_characters:
+            self.valid = False
             self.error("Unexpected character {char}".format(char=character))
-            token = self.tokenize(start, TokenType.INVALID)
+            token = self.tokenize(TokenType.INVALID)
             return token
 
         # check for tokens of size 1
-        if character in Scanner.single_character_tokens:
-            token = self.tokenize(start, Scanner.single_character_tokens[character])
+        if character in single_character_tokens:
+            token = self.tokenize(single_character_tokens[character])
             return token
 
         # check for variable sized tokens with size 1 or 2
-        if character in Scanner.one_two_character_tokens:
-            expected_char = Scanner.one_two_character_tokens[character][0]
-            if self.match(expected_char):
-                token_type = Scanner.one_two_character_tokens[character][1]
+        if character in one_two_character_tokens:
+            expected_char = one_two_character_tokens[character][0]
+            if self.match([expected_char]):
+                token_type = one_two_character_tokens[character][1]
             else:
-                token_type = Scanner.one_two_character_tokens[character][2]
-            token = self.tokenize(start, token_type)
+                token_type = one_two_character_tokens[character][2]
+            token = self.tokenize(token_type)
             return token
 
         # check for divide/comment
         if character == "/":
             if self.match("/"):
-                start += 2
                 self.consume_until_newline()
                 token_type = TokenType.COMMENT
             elif self.match("*"):
                 depth = 1
-                character = self.get_current_character()
+                character = self.peek()
                 while depth > 0:
                     if self.is_current_char_newline():
                         self.consume_newline()
@@ -198,7 +169,7 @@ class Scanner(object):
                 token_type = TokenType.MULTILINE_COMMENT
             else:
                 token_type = TokenType.SLASH
-            token = self.tokenize(start, token_type)
+            token = self.tokenize(token_type)
             return token
 
         # check for string
@@ -208,43 +179,43 @@ class Scanner(object):
                     self.consume_newline()
                 if self.consume() == '"':
                     # remove enclosing "s
-                    value = self.source[start + 1:self.start - 1]
-                    token = self.tokenize(start, TokenType.STRING, value)
+                    value = self.stop_recording(reset=False)[1:-1]
+                    token = self.tokenize(TokenType.STRING, value)
                     break
             else:
                 # source is finished
                 self.error("Unterminated string.")
-                token = self.tokenize(start, TokenType.INVALID)
+                token = self.tokenize(TokenType.INVALID)
             return token
 
         # check for number literal
-        if character in Scanner.digits:
+        if character in digits:
             while not self.is_finished():
-                character = self.get_current_character()
-                if character in Scanner.digits:
+                character = self.peek()
+                if character in digits:
                     self.consume()
-                elif character == "." and self.get_next_character() in Scanner.digits:
+                elif character == "." and self.peek(1) in digits:
                     self.consume()
                 else:
                     break
 
-            value = float(self.source[start:self.start])
-            token = self.tokenize(start, TokenType.NUMBER, value)
+            value = float(self.stop_recording(reset=False))
+            token = self.tokenize(TokenType.NUMBER, value)
             return token
 
-        if character in Scanner.alpha:
+        if character in alpha:
             value = character
             while not self.is_finished():
-                if self.get_current_character() in Scanner.alpha:
+                if self.peek() in alpha:
                     value += self.consume()
-                elif self.get_current_character() in Scanner.digits:
+                elif self.peek() in digits:
                     value += self.consume()
                 else:
                     break
-            if value in Scanner.keywords:
-                token = self.tokenize(start, Scanner.keywords[value])
+            if value in keywords:
+                token = self.tokenize(keywords[value])
             else:
-                token = self.tokenize(start, TokenType.IDENTIFIER, value)
+                token = self.tokenize(TokenType.IDENTIFIER, value)
             return token
 
         raise NotImplementedError("{char} does not match to start of any known token".format(char=character))
@@ -256,5 +227,5 @@ class Scanner(object):
         print("[line {line}, column {column}] {where}: {message}".format(
             line=self.line,
             column=self.column,
-                                                        where=where,
-                                                        message=message))
+            where=where,
+            message=message))
