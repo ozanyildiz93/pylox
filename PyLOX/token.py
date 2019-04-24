@@ -47,6 +47,7 @@ class TokenType(Enum):
     TRUE = auto()
     VAR = auto()
     WHILE = auto()
+    BREAK = auto()
 
     # internal use only
     MULTILINE_COMMENT = auto()
@@ -59,7 +60,7 @@ class TokenType(Enum):
 
 
 class Token(object):
-    def __init__(self, type: TokenType, lexeme: str, literal,
+    def __init__(self, type: TokenType, lexeme: str, literal: object,
                  line: int, column: int):
         self.type = type
         self.lexeme = lexeme
@@ -71,3 +72,15 @@ class Token(object):
         return "Token({type} {lexeme} {literal})".format(type=self.type,
                                                          lexeme=self.lexeme,
                                                          literal=self.literal)
+
+    def __eq__(self, rhs: object) -> bool:
+        if isinstance(rhs, Token):
+            return self.type == rhs.type and self.literal == rhs.literal
+        elif isinstance(rhs, TokenType):
+            return self.type == rhs
+        raise ValueError("Expecting an instance of Token or TokeType, "
+                         "instead received instance of{type}".format(
+            type=type(rhs)))
+
+    def __hash__(self):
+        return hash(self.type)
